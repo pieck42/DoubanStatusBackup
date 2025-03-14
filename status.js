@@ -1,13 +1,24 @@
 // ==UserScript==
 // @name         豆瓣广播备份工具
-// @namespace    http://tampermonkey.net/
-// @version      0.1
-// @description  备份豆瓣个人广播并保存为Markdown文件
-// @author       BunnRecord
+// @name:zh-CN   豆瓣广播备份工具
+// @name:en      Douban Status Backup Tool
+// @namespace    https://github.com/pieck42/DoubanStatusBackup
+// @version      1.0.0
+// @description  备份豆瓣个人广播并保存为Markdown文件，支持批量备份和断点续传
+// @description:zh-CN  备份豆瓣个人广播并保存为Markdown文件，支持批量备份和断点续传
+// @description:en  Backup Douban personal status to Markdown files, support batch backup and breakpoint resume
+// @author       Pieck
+// @license      MIT
 // @match        https://www.douban.com/people/*/statuses*
 // @match        https://www.douban.com/mine/statuses*
-// @grant        none
 // @require      https://cdn.jsdelivr.net/npm/dayjs@1.10.7/dayjs.min.js
+// @require      https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js
+// @grant        none
+// @compatible   chrome
+// @compatible   firefox
+// @compatible   edge
+// @supportURL   https://github.com/pieck42/DoubanStatusBackup/issues
+// @homepageURL  https://github.com/pieck42/DoubanStatusBackup
 // ==/UserScript==
 
 (function() {
@@ -69,13 +80,17 @@
         insertPoint.parentNode.insertBefore(container, insertPoint);
     }
 
-    // 添加调试功能
-    function debugLog(message) {
+    // 增强调试功能
+    function debugLog(message, isError = false) {
         console.log(`[豆瓣备份] ${message}`);
         // 在页面上显示调试信息
         const infoElement = document.getElementById('backupInfo');
         if (infoElement) {
-            infoElement.textContent = message;
+            if (isError) {
+                infoElement.innerHTML += `<div style="color: red">${message}</div>`;
+            } else {
+                infoElement.textContent = message;
+            }
         }
     }
 
@@ -114,7 +129,7 @@
                 debugLog(`已处理 ${processedCount}/${statusItems.length} 条广播`);
             } catch (error) {
                 console.error("处理广播时出错:", error);
-                debugLog(`处理广播时出错: ${error.message}`);
+                debugLog(`处理广播时出错: ${error.message}`, true);
                 // 继续处理下一条广播
                 processedCount++;
             }
@@ -189,7 +204,50 @@
         return comments;
     }
 
-    // 修改 extractSingleStatus 函数中获取评论的部分
+    // 修改 extractSpecialContent 函数，增强对话题讨论类型的支持
+    function extractSpecialContent(item) {
+        // 检查是否是话题讨论类型
+        const isTopicDiscussion = item.getAttribute('data-atype') === 'group/topic' || 
+                                 item.getAttribute('data-atype') === 'personal/topic';
+        
+        // 如果是话题讨论，优先查找 blockquote 中的内容
+        if (isTopicDiscussion) {
+            const blockquote = item.querySelector('blockquote');
+            if (blockquote) {
+                const paragraph = blockquote.querySelector('p');
+                if (paragraph) {
+                    return paragraph.textContent.trim();
+                }
+                return blockquote.textContent.trim();
+            }
+        }
+        
+        // 尝试查找可能包含内容的所有元素
+        const contentSelectors = [
+            'blockquote p', 
+            '.bd p', 
+            '.content p',
+            '.status-saying p',
+            '.status-content p',
+            '.text p',
+            'p[style*="white-space"]', // 针对您截图中的特殊样式
+            '.content blockquote p'    // 特别针对您的案例
+        ];
+        
+        for (const selector of contentSelectors) {
+            const elements = item.querySelectorAll(selector);
+            if (elements.length > 0) {
+                const texts = Array.from(elements).map(el => el.textContent.trim()).filter(text => text);
+                if (texts.length > 0) {
+                    return texts.join('\n\n');
+                }
+            }
+        }
+        
+        return null;
+    }
+
+    // 修改 extractSingleStatus 函数，优先处理话题讨论类型
     async function extractSingleStatus(item) {
         // 检查是否已被删除
         const isDeleted = item.classList.contains('deleted') || item.classList.contains('hidden');
@@ -200,7 +258,7 @@
         
         // 获取广播ID
         const statusId = item.getAttribute('data-sid') || item.id.replace('status-', '');
-        debugLog(`处理广播 ID: ${statusId}`);
+        debugLog(`正在处理广播 ID: ${statusId}`);
         
         // 获取广播类型
         const statusType = item.getAttribute('data-atype') || '';
@@ -268,31 +326,45 @@
             rating = ratingElement.textContent.trim();
         }
         
-        // 获取正文内容 - 针对转发广播特殊处理
+        // 获取正文内容 - 针对话题讨论类型特殊处理
         let contentText = '';
-
-        // 获取广播内容
-        const statusSaying = item.querySelector('.status-saying');
-        if (statusSaying) {
-            // 移除多余的空行和空格
-            contentText = statusSaying.textContent.replace(/\s+/g, ' ').trim();
-            
-            // 如果内容包含"转发："，则正确格式化
-            if (contentText.includes('转发：')) {
-                contentText = contentText.replace(/转发：\s+/, '转发：');
+        
+        // 如果是话题讨论类型，优先使用特殊提取方法
+        if (statusType === 'group/topic' || statusType === 'personal/topic') {
+            const specialContent = extractSpecialContent(item);
+            if (specialContent) {
+                contentText = specialContent;
             }
-            
-            // 移除JavaScript图片代码
-            contentText = removePhotoScript(contentText);
-        } else {
-            // 如果没有 .status-saying，尝试其他选择器
-            const contentElement = item.querySelector('.status-content') || 
-                                  item.querySelector('.text') || 
-                                  item.querySelector('.content');
-            if (contentElement) {
-                contentText = contentElement.textContent.replace(/\s+/g, ' ').trim();
+        }
+        
+        // 如果特殊提取没有结果，继续使用常规方法
+        if (!contentText) {
+            // 获取广播内容 - 增强版
+            const statusSaying = item.querySelector('.status-saying');
+            if (statusSaying) {
+                // 移除多余的空行和空格
+                contentText = statusSaying.textContent.replace(/\s+/g, ' ').trim();
+                
+                // 如果内容包含"转发："，则正确格式化
+                if (contentText.includes('转发：')) {
+                    contentText = contentText.replace(/转发：\s+/, '转发：');
+                }
+                
                 // 移除JavaScript图片代码
                 contentText = removePhotoScript(contentText);
+            } else {
+                // 如果没有 .status-saying，尝试其他选择器
+                const contentElement = item.querySelector('.status-content') || 
+                                      item.querySelector('.text') || 
+                                      item.querySelector('.content') ||
+                                      item.querySelector('p') ||  // 添加对普通段落的支持
+                                      item.querySelector('blockquote p'); // 添加对引用块中段落的支持
+                
+                if (contentElement) {
+                    contentText = contentElement.textContent.replace(/\s+/g, ' ').trim();
+                    // 移除JavaScript图片代码
+                    contentText = removePhotoScript(contentText);
+                }
             }
         }
 
@@ -320,9 +392,10 @@
             }
         }
 
-        // 如果仍然为空，尝试获取所有可见文本
+        // 如果仍然为空，尝试获取所有可见文本，包括嵌套在深层的内容
         if (!contentText) {
-            const allTextElements = item.querySelectorAll('p, div.text, div.content');
+            // 添加对嵌套内容的支持
+            const allTextElements = item.querySelectorAll('p, div.text, div.content, blockquote p, .content p');
             const allTexts = [];
             allTextElements.forEach(el => {
                 if (el.textContent.trim() && !el.querySelector('a, .created_at, .actions')) {
@@ -334,12 +407,49 @@
             contentText = removePhotoScript(contentText);
         }
         
-        // 获取话题信息
-        const topicElement = item.querySelector('.title a') || item.querySelector('a[href*="/topic/"]');
-        const topic = topicElement ? {
-            title: topicElement.textContent.trim() || '话题讨论',
-            url: topicElement.href
-        } : null;
+        // 获取话题信息 - 增强版
+        let topic = null;
+        
+        // 如果是话题讨论类型，优先从 data-aid 和 data-atypecn 获取信息
+        if (statusType === 'group/topic' || statusType === 'personal/topic') {
+            const topicId = item.getAttribute('data-aid');
+            const topicType = item.getAttribute('data-atypecn') || '话题讨论';
+            
+            if (topicId) {
+                // 尝试从内容区域找到话题链接
+                const contentDiv = item.querySelector('.content');
+                let topicUrl = '';
+                let topicTitle = topicType;
+                
+                if (contentDiv) {
+                    const topicLink = contentDiv.querySelector('a[href*="/topic/"]');
+                    if (topicLink) {
+                        topicUrl = topicLink.href;
+                        topicTitle = topicLink.textContent.trim() || topicType;
+                    } else {
+                        // 如果找不到链接，构造一个可能的URL
+                        topicUrl = `https://www.douban.com/topic/${topicId}/`;
+                    }
+                } else {
+                    // 如果找不到内容区域，构造一个可能的URL
+                    topicUrl = `https://www.douban.com/topic/${topicId}/`;
+                }
+                
+                topic = {
+                    title: topicTitle,
+                    url: topicUrl
+                };
+            }
+        }
+        
+        // 如果上面的方法没有找到话题，使用常规方法
+        if (!topic) {
+            const topicElement = item.querySelector('.title a') || item.querySelector('a[href*="/topic/"]');
+            topic = topicElement ? {
+                title: topicElement.textContent.trim() || '话题讨论',
+                url: topicElement.href
+            } : null;
+        }
         
         // 获取图片
         const imageElements = item.querySelectorAll('.status-images img, .topic-pics img, .pics-wrapper img');
