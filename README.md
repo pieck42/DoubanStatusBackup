@@ -17,8 +17,8 @@
 ## 使用方法
 
 1. 安装 Tampermonkey 浏览器插件
-2. 点击 [这里](https://raw.githubusercontent.com/BunnRecord/DoubanStatusBackup/main/status.txt) 安装脚本
-3. 访问你的豆瓣广播页面
+2. 点击 [这里](https://greasyfork.org/en/scripts/529789-%E8%B1%86%E7%93%A3%E5%B9%BF%E6%92%AD%E5%A4%87%E4%BB%BD%E5%B7%A5%E5%85%B7) 安装脚本
+3. 访问你的豆瓣广播页面 https://www.douban.com/people/{你的豆瓣id}/statuses （豆瓣ID就是你主页的最后一串数字）
 4. 点击"备份当前页面广播"或"备份多页广播"按钮
 5. 选择要备份的页码范围（如果选择多页备份）
 6. 等待备份完成，文件会自动下载
@@ -55,3 +55,23 @@ Pieck
 ## 致谢
 
 感谢 [DouBanExport](https://github.com/UlyC/DouBanExport) 项目的启发。 
+
+# 豆瓣书影音内容备份
+
+参考 [链接](https://ulyc.github.io/2022/02/11/Douban-Escape-Plan/)
+
+安装 [此脚本](https://greasyfork.org/en/scripts/439867-%E8%B1%86%E7%93%A3%E8%AF%BB%E4%B9%A6-%E7%94%B5%E5%BD%B1-%E9%9F%B3%E4%B9%90-%E6%B8%B8%E6%88%8F-%E8%88%9E%E5%8F%B0%E5%89%A7%E5%AF%BC%E5%87%BA%E5%B7%A5%E5%85%B)
+
+后打开对应页面即可备份导出csv
+
+豆瓣ID就是你主页的最后一串数字
+
+豆瓣电影主页
+
+https://movie.douban.com/people/{你的豆瓣id}
+
+豆瓣读书主页
+https://book.douban.com/people/{你的豆瓣id}
+
+豆瓣音乐主页
+https://music.douban.com/people/{你的豆瓣id}
