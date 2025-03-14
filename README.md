@@ -71,7 +71,9 @@ Pieck
 https://movie.douban.com/people/{你的豆瓣id}
 
 豆瓣读书主页
+
 https://book.douban.com/people/{你的豆瓣id}
 
 豆瓣音乐主页
+
 https://music.douban.com/people/{你的豆瓣id}
