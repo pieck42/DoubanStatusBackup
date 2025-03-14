@@ -60,7 +60,7 @@ Pieck
 
 参考 [链接](https://ulyc.github.io/2022/02/11/Douban-Escape-Plan/)
 
-安装 [此脚本](https://greasyfork.org/en/scripts/439867-%E8%B1%86%E7%93%A3%E8%AF%BB%E4%B9%A6-%E7%94%B5%E5%BD%B1-%E9%9F%B3%E4%B9%90-%E6%B8%B8%E6%88%8F-%E8%88%9E%E5%8F%B0%E5%89%A7%E5%AF%BC%E5%87%BA%E5%B7%A5%E5%85%B)
+安装 [此脚本](https://greasyfork.org/en/scripts/439867-%E8%B1%86%E7%93%A3%E8%AF%BB%E4%B9%A6-%E7%94%B5%E5%BD%B1-%E9%9F%B3%E4%B9%90-%E6%B8%B8%E6%88%8F-%E8%88%9E%E5%8F%B0%E5%89%A7%E5%AF%BC%E5%87%BA%E5%B7%A5%E5%85%B7)
 
 后打开对应页面即可备份导出csv
 
